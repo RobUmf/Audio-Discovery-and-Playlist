@@ -6,7 +6,7 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 def run_ffmpeg(input_file, output_file, bitrate, include_cover, cover_size="500", start=None, duration=None):
-    """Core Engine: Optimized for UltraSinger 3.10 Sweet Spot with Cover Resizing."""
+    """Core Engine: Sweet Spot with Cover Resizing."""
     clean_name = Path(input_file).stem 
     cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', str(input_file)]
     
