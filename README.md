@@ -37,9 +37,9 @@ A modular, local-first Python pipeline and playlist generation engine designed t
 * **Export Options:** Packages final customized selections into downloadable `.m3u` playlists or structured bundles.
 
 ### Phase 5: Scaling, Community, & Public Sharing
-* **Open Source Repository:** Structured for public collaboration on GitHub[cite: 1].
+* **Open Source Repository:** Structured for public collaboration on GitHub.
 * **Integration Bridge (Optional):** Modular wrapper support for pushing generated playlists directly into streaming tools like AzuraCast.
-* **Community & Support:** Built as an independent hub for fandom music discovery, backed by community involvement and creator-focused support platforms like Patreon[cite: 1].
+* **Community & Support:** Built as an independent hub for fandom music discovery, backed by community involvement and creator-focused support platforms like Patreon.
 
 ---
 
