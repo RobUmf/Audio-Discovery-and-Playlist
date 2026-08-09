@@ -14,7 +14,7 @@ By compressing high-bitrate files (such as 320k) down to efficient footprints (l
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.10+
 - `ffmpeg` installed and accessible in your system path.
 
 ---
