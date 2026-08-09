@@ -39,7 +39,6 @@ By compressing high-bitrate files (such as 320k) down to efficient footprints (l
 ### 1. Standard Multi-Core Run (Recommended)
 Processes a large music directory using 3 concurrent CPU cores, compresses to 128 kbps, and resizes cover art to 500x500 pixels.
 
-```bash
+
 python scanner.py -i "/media/robumf/SGmedia/00MusicMain/Ponies at Dawn 320k" -o "/home/music128/Ponies at Dawn" -b 128k --cover --cover-size 500 -w 3
-```bash
-python scanner.py -i "/media/robumf/SGmedia/00MusicMain/Ponies at Dawn 320k" -o "/home/music128/Ponies at Dawn" -b 128k --cover --cover-size 500 -w 3
+
