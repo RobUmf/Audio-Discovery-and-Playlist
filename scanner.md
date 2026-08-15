@@ -1,4 +1,4 @@
-# Audio Discovery Library Scanner & Compressor[cite: 1]
+# Audio Discovery Library Scanner & Compressor
 
 A high-performance, multi-core Python utility designed to recursively scan, normalize, compress, and organize large music libraries for maximum portability and streaming efficiency.
 
@@ -39,8 +39,6 @@ By compressing high-bitrate files (such as 320k) down to efficient footprints (l
 
 ### 1. Standard Multi-Core Run with Custom Grouping
 Processes a music directory using auto-configured workers, compresses to 128 kbps, includes cover art resized to 300x300, and overrides the grouping tag.
-
-```bash
 python scanner.py --cover --grouping "Bronies for Good"
 
 Processes a single audio file, bumps the quality to 192 kbps, flattens the output directory structure, and saves to a custom database manifest
