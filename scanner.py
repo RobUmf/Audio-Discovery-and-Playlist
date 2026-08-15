@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-def run_ffmpeg(input_file, output_file, bitrate, include_cover, cover_size="500", start=None, duration=None):
+def run_ffmpeg(input_file, output_file, bitrate, include_cover, cover_size="300", start=None, duration=None):
     """Core Engine: Sweet Spot with Cover Resizing."""
     clean_name = Path(input_file).stem 
     cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', str(input_file)]
@@ -40,12 +40,12 @@ def run_ffmpeg(input_file, output_file, bitrate, include_cover, cover_size="500"
     except subprocess.CalledProcessError:
         return False
 
-def process_track(f, input_root, output_root, flat, bitrate, cover, cover_size):
+def process_track(f, input_root, output_root, flat, bitrate, cover, cover_size, custom_grouping):
     """Worker function to process a single track independently."""
     if flat:
         relative_path = Path(f.name)
     elif input_root.is_dir():
-        relative_path = Path(input_root.name) / f.relative_to(input_root)
+        relative_path = f.relative_to(input_root)
     else:
         relative_path = Path(f.name)
 
@@ -60,31 +60,50 @@ def process_track(f, input_root, output_root, flat, bitrate, cover, cover_size):
             'processed_path': str(target_path),
             'filename': f.name,
             'title': f.stem,
-            'grouping': f.parent.name
+            'grouping': custom_grouping if custom_grouping else f.parent.name
         }
         return success, row_data, str(relative_path)
     return success, None, str(relative_path)
 
 if __name__ == "__main__":
+    # Determine base paths dynamically relative to repository location
+    REPO_DIR = Path(__file__).resolve().parent
+    PARENT_DIR = REPO_DIR.parent
+    
+    DEFAULT_INPUT = PARENT_DIR / "musicraw"
+    DEFAULT_OUTPUT = PARENT_DIR / "128mp3"
+    DEFAULT_CSV = REPO_DIR / "audio_manifest.csv"
+    
+    # Automatically calculate default CPU workers (Leave 1 core free)
+    cpu_count = os.cpu_count() or 4
+    DEFAULT_WORKERS = max(1, cpu_count - 1)
+
     parser = argparse.ArgumentParser(description="Audio Discovery Library Scanner & Compressor (Multi-Core)")
-    parser.add_argument("-i", "--input", required=True, help="Input Root Directory")
-    parser.add_argument("-o", "--output", required=True, help="Target Root Directory")
+    parser.add_argument("-i", "--input", default=str(DEFAULT_INPUT), help=f"Input Root Directory (Default: {DEFAULT_INPUT})")
+    parser.add_argument("-o", "--output", default=str(DEFAULT_OUTPUT), help=f"Target Root Directory (Default: {DEFAULT_OUTPUT})")
     parser.add_argument("-b", "--bitrate", default="128k", choices=["128k", "192k", "256k", "320k"], help="Bitrate")
     parser.add_argument("--cover", action="store_true", help="Include and resize Cover Art")
-    parser.add_argument("--cover-size", default="500", help="Square pixel size for cover art (default: 500)")
+    parser.add_argument("--cover-size", default="300", help="Square pixel size for cover art (default: 300)")
     parser.add_argument("--flat", action="store_true", help="Flatten all files into a single output folder")
-    parser.add_argument("--csv", default="audio_manifest.csv", help="Path to save the output CSV database manifest")
-    parser.add_argument("-w", "--workers", type=int, default=3, help="Number of concurrent CPU workers")
+    parser.add_argument("--csv", default=str(DEFAULT_CSV), help=f"Path to save CSV database manifest (Default: {DEFAULT_CSV})")
+    parser.add_argument("-w", "--workers", type=int, default=DEFAULT_WORKERS, help=f"Number of concurrent CPU workers (Default: {DEFAULT_WORKERS})")
+    parser.add_argument("--grouping", type=str, default=None, help="Custom grouping name (overrides the default parent folder name)")
     
     args = parser.parse_args()
     input_root = Path(args.input).resolve()
     output_root = Path(args.output).resolve()
     csv_path = Path(args.csv).resolve()
 
+    if not input_root.exists():
+        print(f"❌ Input directory does not exist: {input_root}")
+        print("Please create the 'musicraw' directory or pass a custom path with -i / --input.")
+        exit(1)
+
     if input_root.is_file():
         files_to_process = [input_root]
     else:
-        extensions = ('.mp3', '.wav', '.flac', '.m4a')
+        # Added .opus to the supported extensions list
+        extensions = ('.mp3', '.wav', '.flac', '.m4a', '.opus')
         all_found = [f for f in input_root.rglob('*') if f.suffix.lower() in extensions]
         
         files_to_process = []
@@ -137,17 +156,15 @@ if __name__ == "__main__":
         if write_header:
             writer.writeheader()
 
-        # Launch the worker pool
+        # Launch worker pool
         with ProcessPoolExecutor(max_workers=args.workers) as executor:
-            # Submit all tasks to the pool
             futures = {
                 executor.submit(
                     process_track, f, input_root, output_root, 
-                    args.flat, args.bitrate, args.cover, args.cover_size
+                    args.flat, args.bitrate, args.cover, args.cover_size, args.grouping
                 ): f for f in remaining_files
             }
             
-            # As each track finishes in the background, catch the result and save it
             for future in as_completed(futures):
                 success, row_data, rel_path = future.result()
                 print(f"    Finished: {rel_path}")
