@@ -138,8 +138,10 @@ def run_ffmpeg(input_file, output_file, bitrate, include_cover, cover_size="300"
     clean_name = Path(input_file).stem 
     cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', str(input_file)]
     cmd.extend(['-map', '0:a'])
+    
     if include_cover:
         cmd.extend(['-map', '0:v?', '-c:v', 'mjpeg', '-vf', f'scale={cover_size}:{cover_size}']) 
+        
     cmd.extend([
         '-map_metadata', '0', '-id3v2_version', '3', 
         '-metadata', f'title={clean_name}', '-b:a', bitrate, '-ar', '44100', str(output_file)
@@ -150,8 +152,14 @@ def run_ffmpeg(input_file, output_file, bitrate, include_cover, cover_size="300"
     except subprocess.CalledProcessError:
         return False
 
-def process_track(f, input_root, output_root, bitrate, cover, cover_size, override_group):
-    relative_path = f.relative_to(input_root) if input_root.is_dir() else Path(f.name)
+def process_track(f, input_root, output_root, flat, bitrate, cover, cover_size, override_group):
+    if flat:
+        relative_path = Path(f.name)
+    elif input_root.is_dir():
+        relative_path = f.relative_to(input_root)
+    else:
+        relative_path = Path(f.name)
+        
     target_path = output_root / relative_path.with_suffix('.mp3')
     target_path.parent.mkdir(parents=True, exist_ok=True)
     
@@ -175,7 +183,6 @@ def process_track(f, input_root, output_root, bitrate, cover, cover_size, overri
     
     if success:
         meta = extract_id3_tags(f)
-        # Use explicit override group if supplied, otherwise fallback to parent directory name
         group_name = override_group if override_group else f.parent.name
         
         row_data = {
@@ -201,22 +208,40 @@ def process_track(f, input_root, output_root, bitrate, cover, cover_size, overri
 
 if __name__ == "__main__":
     REPO_DIR = Path(__file__).resolve().parent
+    BASE_DIR = Path(os.environ.get("MUSIC_BASE", REPO_DIR.parent))
     DEFAULT_CONFIG = REPO_DIR / "config.json"
+    
+    cpu_count = os.cpu_count() or 4
+    DEFAULT_WORKERS = max(1, cpu_count - 1)
+    
+    config = load_config(DEFAULT_CONFIG)
     
     parser = argparse.ArgumentParser(description="Config-Driven SQLite Audio Ingestion Engine")
     parser.add_argument("-c", "--config", default=str(DEFAULT_CONFIG), help="Path to config.json")
+    parser.add_argument("-i", "--input", help="Input Root Directory (Overrides config)")
+    parser.add_argument("-o", "--output", help="Target Root Directory (Overrides config)")
+    parser.add_argument("-b", "--bitrate", help="Target Bitrate (Overrides config)")
+    parser.add_argument("--cover", action="store_true", help="Include Cover Art (Overrides config)")
+    parser.add_argument("--cover-size", help="Square pixel size for cover art")
+    parser.add_argument("--flat", action="store_true", help="Flatten all files into a single output folder")
+    parser.add_argument("-w", "--workers", type=int, help="Number of concurrent CPU workers")
     parser.add_argument("-g", "--group", help="Optional grouping tag override for this batch")
+    parser.add_argument("--db", help="Path to SQLite database (Overrides config)")
+    
     args = parser.parse_args()
     
-    config = load_config(args.config)
-    input_root = Path(config.get("input_dir", REPO_DIR / "musicraw")).resolve()
-    output_root = Path(config.get("output_dir", REPO_DIR / "128mp3")).resolve()
-    db_path = Path(config.get("db_path", REPO_DIR / "audio_database.db")).resolve()
-    bitrate = config.get("bitrate", "128k")
-    include_cover = config.get("include_cover", True)
-    cover_size = str(config.get("cover_size", "300"))
+    if args.config != str(DEFAULT_CONFIG):
+         config = load_config(args.config)
+    
+    input_root = Path(args.input or config.get("input_dir", BASE_DIR / "musicraw")).resolve()
+    output_root = Path(args.output or config.get("output_dir", BASE_DIR / "128mp3")).resolve()
+    db_path = Path(args.db or config.get("db_path", REPO_DIR / "audio_database.db")).resolve()
+    bitrate = args.bitrate or config.get("bitrate", "128k")
+    include_cover = args.cover or config.get("include_cover", True)
+    cover_size = args.cover_size or str(config.get("cover_size", "300"))
+    flat_mode = args.flat or config.get("flat", False)
+    workers = args.workers or config.get("workers", DEFAULT_WORKERS)
     override_group = args.group
-    workers = max(1, (os.cpu_count() or 4) - 1)
 
     if not input_root.exists():
         print(f"❌ Input directory does not exist: {input_root}")
@@ -224,11 +249,38 @@ if __name__ == "__main__":
 
     init_db(db_path)
 
-    extensions = ('.mp3', '.wav', '.flac', '.m4a', '.opus')
-    all_found = [f for f in input_root.rglob('*') if f.suffix.lower() in extensions]
+    if input_root.is_file():
+        files_to_process = [input_root]
+    else:
+        extensions = ('.mp3', '.wav', '.flac', '.m4a', '.opus')
+        all_found = [f for f in input_root.rglob('*') if f.suffix.lower() in extensions]
+        
+        files_to_process = []
+        seen_filenames = {}
+        for f in all_found:
+            if f.name not in seen_filenames:
+                seen_filenames[f.name] = f
+                files_to_process.append(f)
+            else:
+                if len(f.parts) > len(seen_filenames[f.name].parts):
+                    files_to_process.remove(seen_filenames[f.name])
+                    seen_filenames[f.name] = f
+                    files_to_process.append(f)
     
     processed_paths = get_processed_paths(db_path)
-    remaining_files = [f for f in all_found if str((output_root / f.relative_to(input_root).with_suffix('.mp3')).resolve()) not in processed_paths]
+    
+    remaining_files = []
+    for f in files_to_process:
+        if flat_mode:
+            test_rel = Path(f.name)
+        elif input_root.is_dir():
+            test_rel = f.relative_to(input_root)
+        else:
+            test_rel = Path(f.name)
+            
+        expected_target = str((output_root / test_rel.with_suffix('.mp3')).resolve())
+        if expected_target not in processed_paths:
+            remaining_files.append(f)
 
     if not remaining_files:
         print("✅ All tracks are already compressed and registered in the database!")
@@ -237,7 +289,7 @@ if __name__ == "__main__":
     total_tracks = len(remaining_files)
     completed_count = 0
 
-    print(f"🚀 Processing {total_tracks} tracks at target bitrate {bitrate} using {workers} workers...")
+    print(f"🚀 Processing {total_tracks} unique tracks at {bitrate} using {workers} workers...")
     if override_group:
         print(f"🏷️ Assigned Group Tag Override: '{override_group}'")
 
@@ -246,7 +298,10 @@ if __name__ == "__main__":
 
     with ProcessPoolExecutor(max_workers=workers) as executor:
         futures = {
-            executor.submit(process_track, f, input_root, output_root, bitrate, include_cover, cover_size, override_group): f 
+            executor.submit(
+                process_track, f, input_root, output_root, flat_mode, 
+                bitrate, include_cover, cover_size, override_group
+            ): f 
             for f in remaining_files
         }
         
