@@ -17,7 +17,7 @@
 
 ## 📋 Requirements
 
-* **Python 3.10+** (Recommended sweet spot for UltraSinger compatibility)
+* **Python 3.10+** (Recommended sweet spot for compatibility)
 * `ffmpeg` and `ffprobe` installed on system path
 * Python packages: `mutagen`
 
