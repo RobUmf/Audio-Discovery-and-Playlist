@@ -37,6 +37,52 @@ The script accepts the following arguments. If an argument is not provided, the 
 * `--flat` *(flag)* : Flatten all processed files directly into the root output folder without subdirectories.
 * `-w`, `--workers` *(int)* : Number of concurrent CPU workers. Defaults to max available cores minus one.
 * `-g`, `--group` *(string)* : Custom grouping name override for this batch. Bypasses the default parent folder name assignment.
+* `--db` *(path)* : Path to a custom SQLite database file (Overrides config).
+
+---
+
+## ⚙️ Configuration File (`config.json`)
+
+You can define baseline settings in `config.json` to avoid typing flags every time:
+
+```json
+{
+  "input_dir": "./musicraw",
+  "output_dir": "./128mp3",
+  "db_path": "./audio_database.db",
+  "bitrate": "128k",
+  "include_cover": true,
+  "cover_size": "300",
+  "flat": false,
+  "workers": 4
+}* **Flat Output Option:** Can recursively scan deeply nested music folders but output all converted MP3s into a single, flat destination folder without retaining the original subfolder structure.
+* **Automatic Database Provisioning:** Automatically creates `audio_database.db` and the core `tracks` table if they do not exist.
+* **Rich Metadata Extraction:** Reads ID3 tags via `mutagen` to capture title, artist, album, genre, year, track number, disc number, duration, and sample rate during ingestion.
+
+---
+
+## 📋 Requirements
+
+* **Python 3.10+** (Recommended sweet spot for compatibility)
+* `ffmpeg` and `ffprobe` installed on system path
+* Python packages: `mutagen`
+
+---
+
+## 🎛️ Command-Line Interface (CLI) Flags
+
+The script accepts the following arguments. If an argument is not provided, the script falls back to `config.json`. If `config.json` lacks the key, hardcoded defaults take over.
+
+* `-c`, `--config` *(path)* : Path to JSON configuration file (Default: `config.json`).
+* `-i`, `--input` *(path)* : Input root directory containing raw audio files.
+* `-o`, `--output` *(path)* : Output root directory for processed MP3s.
+* `-b`, `--bitrate` *(string)* : Target audio encoding bitrate (Default: `"128k"`).
+  * Available choices: `128k`, `192k`, `256k`, `320k`
+* `--cover` *(flag)* : Include and embed album cover art (Scales embedded video/images).
+* `--cover-size` *(string)* : Square pixel dimension for scaled cover art (Default: `"300"`).
+* `--flat` *(flag)* : Flatten all processed files directly into the root output folder without subdirectories.
+* `-w`, `--workers` *(int)* : Number of concurrent CPU workers. Defaults to max available cores minus one.
+* `-g`, `--group` *(string)* : Custom grouping name override for this batch. Bypasses the default parent folder name assignment.
 
 ---
 
@@ -55,3 +101,14 @@ You can define baseline settings in `config.json` to avoid typing flags every ti
   "flat": false,
   "workers": 4
 }
+py
+
+python3 ingest.py
+
+Even worked on an Amazon Tablet with termux
+Targeted Artist Test Run:
+Scan a specific artist folder, mirror subdirectories to a test output folder, log entries to an isolated test database, force 128k compression, and embed 300x300 cover art:
+python3 ingest.py -i "/storage/2013-1E1B/Music/BronyRaw/Elias Frost" -o "/storage/2013-1E1B/test" --db "./test_audio.db" -b "128k" --cover --cover-size "300"
+python3 ingest.py -i ./test_music -o ./test_output --flat -w 1 -g "TestBatch"
+
+sqlite3 test_audio.db "SELECT title, format, sample_rate_hz FROM tracks;"
