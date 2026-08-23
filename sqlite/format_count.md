@@ -45,3 +45,7 @@ The script looks for default paths defined in your `config.json`:
   "flat": false,
   "workers": 4
 }
+
+python3 format_count.py
+
+python3 format_count.py -i "/storage/2013-1E1B/Music/BronyRaw/Elias Frost" -o "/storage/2013-1E1B/test"
