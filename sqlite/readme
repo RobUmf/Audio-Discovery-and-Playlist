@@ -1,0 +1,17 @@
+# Audio Discovery & Playlist - SQLite Edition
+
+A lightweight, robust Python framework for scanning large audio archives, extracting acoustic and DSP features (via Librosa and PyDub), and indexing them into a local SQLite database for fast querying and playlist generation.
+
+Designed with built-in memory throttling and process-pool recycling to safely handle thousands of files on modest hardware without triggering Out-Of-Memory (OOM) crashes.
+
+---
+
+## 📋 Requirements & Dependencies
+
+* **Python 3.10+** (Recommended sweet spot for stability)
+* **FFmpeg** (Required for audio segment decoding via PyDub)
+
+### Python Package Dependencies
+Install the required packages via pip:
+```bash
+pip install numpy librosa pydub scipy pandas
