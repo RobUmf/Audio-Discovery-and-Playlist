@@ -43,4 +43,7 @@ The script computes and updates the following categories in the database:
 ### 1. Standard Execution (Using Defaults)
 python analyzersqlite.py
 
+Usage examples
+python analyzersqlite.py --workers 4 --batch-size 25 --sleep 5.0 --max-dur 90.0
 python analyzersqlite.py --batch-size 30 --sleep 3.0 --max-dur 90.0
+python analyzersqlite.py -d /path/to/audio/files --db /path/to/custom_database.db
