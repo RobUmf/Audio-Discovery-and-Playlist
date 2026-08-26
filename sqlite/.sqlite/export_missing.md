@@ -35,44 +35,13 @@ python3 export_missing.py [FLAGS]
 ## Example Usage
 
 ### Standard Run (Uses `config.json`)
-```bash
 python3 export_missing.py
-```
 
 ### Override Target Folder
-```bash
 python3 export_missing.py --target ~/external/128mp3
-```
 
 ### Custom Database and Config Path
-```bash
 python3 export_missing.py -c custom_config.json --db ~/audio-repo/sqlite/my_database.db
-```
 
 ### Custom Output Report Name
-```bash
 python3 export_missing.py --output batch_missing_report.txt
-```
-
----
-
-## Sample Output
-
-### Terminal Output
-```text
-ðŸ“„ Loading configuration from /home/robumf/audio-repo/sqlite/config.json
-ðŸ—„ï¸ Database: /home/robumf/audio-repo/sqlite/audio_database.db
-ðŸ“ Searching target folder: /home/robumf/128mp3
-[*] Exported 3 missing tracks to: /home/robumf/audio-repo/sqlite/missing_tracks.txt
-```
-
-### Generated Report (`missing_tracks.txt`)
-```text
-=== MISSING TRACKS LIST (3 total) ===
-Target Directory Searched: /home/robumf/128mp3
-Database Queried: /home/robumf/audio-repo/sqlite/audio_database.db
-
-Artist Name | Album Title | Song Title (Track01.mp3)
-Band Name | Live Album | Demo Track (DemoTrack.mp3)
-Unknown Artist | Singles | Prototype (proto.mp3)
-```
