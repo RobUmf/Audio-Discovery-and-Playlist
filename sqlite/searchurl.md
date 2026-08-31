@@ -27,6 +27,7 @@ A resilient, multi-threaded Python utility designed to query YouTube metadata an
 ## Usage Examples
 
 **Default Parallel Run (Auto Cores - 1, 20s Timeout):**
+
 python3 searchurl.py
 
 Custom Timeout & Worker Count:
