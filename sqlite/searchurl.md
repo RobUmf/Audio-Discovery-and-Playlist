@@ -1,34 +1,28 @@
 # searchurl
 
-A resilient, automated Python tool that uses `yt-dlp` to query YouTube for track metadata and populate missing video URLs directly into an SQLite audio database.
+> High-speed parallel YouTube URL resolver and SQLite database populator using `yt-dlp`.
 
-## Key Features
+A resilient, multi-threaded Python utility designed to query YouTube metadata and populate missing `youtube_url` fields directly into an SQLite audio database.
 
-* **Smart Query Construction:** Combines `artist` or `album_artist` metadata with the track filename, automatically preventing duplicate artist names if already present in the title.
-* **Fallback Search Handling:** Uses `ytsearch3:` to skip dead, deleted, or blocked top results and retrieve the first accessible valid video link.
-* **Timeout & Stall Protection:** Enforces a strict 20-second timeout per search query to prevent stalled network requests from freezing the queue.
-* **Incremental Commits:** Commits updates to SQLite after every successful match, ensuring no progress is lost if the script is interrupted.
-* **Ad-Free API Querying:** Fetches direct metadata endpoints using `yt-dlp`, bypassing browser players and video ads completely.
+## Features
 
-## Requirements
+* **Multi-Threaded Concurrency:** Uses Python's `ThreadPoolExecutor` (`-w`) to execute parallel network searches, drastically reducing total execution time.
+* **Smart Core Scaling:** Automatically defaults worker threads to `CPU Cores - 1` to maintain system responsiveness during heavy processing.
+* **Flat Extraction (`--flat-playlist`):** Queries search result endpoints directly without loading full webpage resources or playing video streams.
+* **Fallbacks & Deduplication:** Prefers `artist` metadata, falls back to `album_artist`, and automatically deduplicates artist names if present in the track title.
+* **Multi-Result Failover:** Searches up to 3 results (`ytsearch3:`) to bypass dead, region-locked, or deleted videos.
+* **Thread-Safe SQLite Commits:** Keeps database operations isolated to the main thread while worker threads fetch network data concurrently.
+* **Configurable Timeout Safety:** Enforces strict per-track timeouts (`-t`) to prevent stalled connections from halting the batch.
+* **Timestamped Logging:** Standardized ISO timestamp logging (`[YYYY-MM-DD HH:MM:SS]`) with completion counters.
 
-* Python 3.10+
-* `yt-dlp` (`pip install yt-dlp`)
-* SQLite3
+## Command-Line Options
 
-## Database Schema Expectation
+| Flag | Option | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `-c` | `--config` | `config.json` | Path to JSON configuration file |
+| | `--db` | `audio_database.db` | Path to target SQLite database |
+| `-w` | `--workers` | `CPU cores - 1` | Number of concurrent search threads |
+| `-t` | `--timeout` | `20` | Maximum time allowed (seconds) per search request |
 
-The script targets a table named `tracks` containing at least the following columns:
+## Usage pyfault Parallel Run (Auto Cores - 1, 20s Timeout):**
 
-| Column | Description |
-| :--- | :--- |
-| `original_path` | Full local path to the audio file |
-| `artist` | Track artist name |
-| `album_artist` | Album artist name (fallback) |
-| `youtube_url` | Target field to populate (`NULL` or empty initially) |
-
-##Usage Examples
-
-python3 searchurl.py
-
-python3 searchurl.py --db /path/to/your/audio_database.db
