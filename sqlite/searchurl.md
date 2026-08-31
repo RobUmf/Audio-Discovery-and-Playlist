@@ -24,5 +24,17 @@ A resilient, multi-threaded Python utility designed to query YouTube metadata an
 | `-w` | `--workers` | `CPU cores - 1` | Number of concurrent search threads |
 | `-t` | `--timeout` | `20` | Maximum time allowed (seconds) per search request |
 
-## Usage pyfault Parallel Run (Auto Cores - 1, 20s Timeout):**
+## Usage Examples
 
+**Default Parallel Run (Auto Cores - 1, 20s Timeout):**
+python3 searchurl.py
+
+Custom Timeout & Worker Count:
+
+
+python3 searchurl.py -w 4 -t 25 
+
+Custom Database Target:
+
+
+python3 searchurl.py --db /storage/2013-1E1B/audio-repo/SQLite/audio_database.db 
