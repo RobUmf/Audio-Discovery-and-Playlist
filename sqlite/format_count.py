@@ -40,8 +40,9 @@ if __name__ == "__main__":
     else:
         print(f"⚠️ Warning: Config file '{args.config}' not found. Using default paths.")
 
-    input_dir = Path(args.input or config.get("input_dir", '/storage/2013-1E1B/musicraw'))
-    output_dir = Path(args.output or config.get("output_dir", '/storage/2013-1E1B/128mp3'))
+    # Added .expanduser() to dynamically resolve ~ to the user's home directory
+    input_dir = Path(args.input or config.get("input_dir", '/storage/2013-1E1B/musicraw')).expanduser()
+    output_dir = Path(args.output or config.get("output_dir", '/storage/2013-1E1B/128mp3')).expanduser()
 
     folders = {
         "Raw Library (musicraw)": input_dir,
