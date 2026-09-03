@@ -1,41 +1,28 @@
-# searchurl
+# YouTube URL Search Tool (`searchurl.py`)
 
-> High-speed parallel YouTube URL resolver and SQLite database populator using `yt-dlp`.
+An automated Python utility designed to scan your SQLite audio database for tracks lacking YouTube links, construct intelligent search queries using metadata and filenames, and concurrently fetch and populate official video URLs using `yt-dlp`. Features built-in confidence scoring to ensure title accuracy.
 
-A resilient, multi-threaded Python utility designed to query YouTube metadata and populate missing `youtube_url` fields directly into an SQLite audio database.
+## Recommended Search Strategies
 
-## Features
+**1. Rapid Shotgun Search (Try this one first)**
+* **Command:** `python3 searchurl.py -t 2` (Uses default workers: CPU cores - 1)
+* **Details:** Highly concurrent with a short 2-second timeout. Requires fast internet and is best run when YouTube server traffic is low. Can be run multiple times to quickly scoop up the easiest/fastest matches.
 
-* **Multi-Threaded Concurrency:** Uses Python's `ThreadPoolExecutor` (`-w`) to execute parallel network searches, drastically reducing total execution time.
-* **Smart Core Scaling:** Automatically defaults worker threads to `CPU Cores - 1` to maintain system responsiveness during heavy processing.
-* **Flat Extraction (`--flat-playlist`):** Queries search result endpoints directly without loading full webpage resources or playing video streams.
-* **Fallbacks & Deduplication:** Prefers `artist` metadata, falls back to `album_artist`, and automatically deduplicates artist names if present in the track title.
-* **Multi-Result Failover:** Searches up to 3 results (`ytsearch3:`) to bypass dead, region-locked, or deleted videos.
-* **Thread-Safe SQLite Commits:** Keeps database operations isolated to the main thread while worker threads fetch network data concurrently.
-* **Configurable Timeout Safety:** Enforces strict per-track timeouts (`-t`) to prevent stalled connections from halting the batch.
-* **Timestamped Logging:** Standardized ISO timestamp logging (`[YYYY-MM-DD HH:MM:SS]`) with completion counters.
+**2. Slow Search**
+* **Command:** `python3 searchurl.py -w 2 -t 20`
+* **Details:** Drops down to 2 workers but increases the timeout to 20 seconds. Ideal for catching tracks that need more time to resolve without rate-limiting your connection.
+
+**3. Difficult Search**
+* **Command:** `python3 searchurl.py -w 1 -t 20 -m 80`
+* **Details:** 1 worker, 20-second timeout, enforcing a strict 80% confidence match between your local tags and the YouTube title. 
+* **Follow-up:** Can be run again at a 60% confidence level (`-m 60`) to catch the remaining stubborn tracks that might have slightly different naming conventions on YouTube.
 
 ## Command-Line Options
 
-| Flag | Option | Default | Description |
+| Option | Flag | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `-c` | `--config` | `config.json` | Path to JSON configuration file |
-| | `--db` | `audio_database.db` | Path to target SQLite database |
-| `-w` | `--workers` | `CPU cores - 1` | Number of concurrent search threads |
-| `-t` | `--timeout` | `20` | Maximum time allowed (seconds) per search request |
-
-## Usage Examples
-
-**Default Parallel Run (Auto Cores - 1, 20s Timeout):**
-
-python3 searchurl.py
-
-Custom Timeout & Worker Count:
-
-
-python3 searchurl.py -w 4 -t 25 
-
-Custom Database Target:
-
-
-python3 searchurl.py --db /storage/2013-1E1B/audio-repo/SQLite/audio_database.db 
+| **Config File** | `-c`, `--config` | `config.json` | Path to an external JSON configuration file. |
+| **Database Path** | `--db` | `audio_database.db` | Path to the target SQLite audio database file. |
+| **Worker Threads** | `-w`, `--workers` | `CPU cores - 1` | Number of parallel worker threads for concurrent searching. |
+| **Search Timeout** | `-t`, `--timeout` | `10` | Timeout threshold in seconds per track query. |
+| **Confidence Level** | `-m`, `--min-confidence` | `0.0` | Minimum title similarity percentage (0-100) required to save the URL. |
