@@ -1,40 +1,235 @@
 import sqlite3
-from pathlib import Path
-from datetime import datetime
+import json
+import math
+import os
+
+DB_PATH = "audio_database.db"
+# Change 'tracks' to match your actual SQLite table name if different
+TABLE_NAME = "tracks" 
+
+def prompt_float(prompt_text):
+    val = input(prompt_text).strip()
+    if not val:
+        return None
+    try:
+        return float(val)
+    except ValueError:
+        print("   [!] Invalid number, skipping...")
+        return None
+
+def prompt_str(prompt_text):
+    val = input(prompt_text).strip()
+    return val if val else None
 
 def main():
-    db_path = 'audio_database.db'
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    
-    # Get total database size for the M3U remark
-    cursor.execute("SELECT COUNT(*) FROM tracks")
-    total_db_records = cursor.fetchone()[0]
-    
     print("=" * 60)
-    print("🎵 Ultimate DSP Playlist Generator (Includes Complexity)")
+    print("🎵 Ultimate DSP Playlist Generator (SQLite + MFCC Average)")
     print("Press [Enter] on any prompt to skip that filter.")
     print("=" * 60)
-    
-    filters = []
+
+    conditions = ["1=1"]
     params = []
-    
-    # 1. BPM (Tempo)
+
+    # 1. BPM
     print("\n[1/12] BPM (Tempo)")
-    min_bpm = input("   -> Min BPM (skip): ").strip()
-    max_bpm = input("   -> Max BPM (skip): ").strip()
-    if min_bpm: filters.append("dsp_bpm >= ?"); params.append(float(min_bpm))
-    if max_bpm: filters.append("dsp_bpm <= ?"); params.append(float(max_bpm))
-        
+    min_bpm = prompt_float("   -> Min BPM (skip): ")
+    if min_bpm is not None:
+        conditions.append("dsp_bpm >= ?"); params.append(min_bpm)
+    max_bpm = prompt_float("   -> Max BPM (skip): ")
+    if max_bpm is not None:
+        conditions.append("dsp_bpm <= ?"); params.append(max_bpm)
+
     # 2. Spectral Centroid
     print("\n[2/12] Spectral Centroid (Brightness/Timbre)")
-    min_cent = input("   -> Min Centroid Hz (skip): ").strip()
-    max_cent = input("   -> Max Centroid Hz (skip): ").strip()
-    if min_cent: filters.append("spectral_centroid_hz >= ?"); params.append(float(min_cent))
-    if max_cent: filters.append("spectral_centroid_hz <= ?"); params.append(float(max_cent))
+    min_cent = prompt_float("   -> Min Centroid Hz (skip): ")
+    if min_cent is not None:
+        conditions.append("spectral_centroid_hz >= ?"); params.append(min_cent)
+    max_cent = prompt_float("   -> Max Centroid Hz (skip): ")
+    if max_cent is not None:
+        conditions.append("spectral_centroid_hz <= ?"); params.append(max_cent)
 
     # 3. Spectral Rolloff
     print("\n[3/12] Spectral Rolloff (High-Frequency Cutoff)")
+    min_roll = prompt_float("   -> Min Rolloff Hz (skip): ")
+    if min_roll is not None:
+        conditions.append("spectral_rolloff_hz >= ?"); params.append(min_roll)
+    max_roll = prompt_float("   -> Max Rolloff Hz (skip): ")
+    if max_roll is not None:
+        conditions.append("spectral_rolloff_hz <= ?"); params.append(max_roll)
+
+    # 4. Harmonic Ratio
+    print("\n[4/12] Harmonic Ratio (Smoothness vs Percussiveness)")
+    min_harm = prompt_float("   -> Min Harmonic Ratio [0.0 - 1.0] (skip): ")
+    if min_harm is not None:
+        conditions.append("hpss_harmonic_ratio >= ?"); params.append(min_harm)
+    max_harm = prompt_float("   -> Max Harmonic Ratio [0.0 - 1.0] (skip): ")
+    if max_harm is not None:
+        conditions.append("hpss_harmonic_ratio <= ?"); params.append(max_harm)
+
+    # 5. Crest Factor
+    print("\n[5/12] Crest Factor (Dynamic Punchiness)")
+    min_crest = prompt_float("   -> Min Crest Factor dB (skip): ")
+    if min_crest is not None:
+        conditions.append("dynamics_crest_factor_db >= ?"); params.append(min_crest)
+    max_crest = prompt_float("   -> Max Crest Factor dB (skip): ")
+    if max_crest is not None:
+        conditions.append("dynamics_crest_factor_db <= ?"); params.append(max_crest)
+
+    # 6. Spectral Flatness
+    print("\n[6/12] Spectral Flatness (Tone vs Noise)")
+    min_flat = prompt_float("   -> Min Flatness (skip): ")
+    if min_flat is not None:
+        conditions.append("spectral_flatness >= ?"); params.append(min_flat)
+    max_flat = prompt_float("   -> Max Flatness (skip): ")
+    if max_flat is not None:
+        conditions.append("spectral_flatness <= ?"); params.append(max_flat)
+
+    # 7. Onset Rate
+    print("\n[7/12] Complexity: Onset Rate (Rhythmic Busyness)")
+    min_onset = prompt_float("   -> Min Onset Rate (skip): ")
+    if min_onset is not None:
+        conditions.append("onset_rate >= ?"); params.append(min_onset)
+    max_onset = prompt_float("   -> Max Onset Rate (skip): ")
+    if max_onset is not None:
+        conditions.append("onset_rate <= ?"); params.append(max_onset)
+
+    # 8. Rhythm Pulse Clarity
+    print("\n[8/12] Complexity: Rhythm Pulse Clarity")
+    min_pulse = prompt_float("   -> Min Pulse Clarity [0.0 - 1.0] (skip): ")
+    if min_pulse is not None:
+        conditions.append("rhythm_pulse_clarity >= ?"); params.append(min_pulse)
+    max_pulse = prompt_float("   -> Max Pulse Clarity [0.0 - 1.0] (skip): ")
+    if max_pulse is not None:
+        conditions.append("rhythm_pulse_clarity <= ?"); params.append(max_pulse)
+
+    # 9. Spectral Contrast
+    print("\n[9/12] Complexity: Spectral Contrast")
+    min_contrast = prompt_float("   -> Min Contrast (skip): ")
+    if min_contrast is not None:
+        conditions.append("spectral_contrast >= ?"); params.append(min_contrast)
+    max_contrast = prompt_float("   -> Max Contrast (skip): ")
+    if max_contrast is not None:
+        conditions.append("spectral_contrast <= ?"); params.append(max_contrast)
+
+    # 10. Musical Key
+    print("\n[10/12] Musical Key")
+    key_val = prompt_str("   -> Key contains (e.g., 'Minor') (skip): ")
+    if key_val is not None:
+        conditions.append("dsp_key LIKE ?"); params.append(f"%{key_val}%")
+
+    # 11. Grouping
+    print("\n[11/12] Grouping / Album Collection")
+    group_val = prompt_str("   -> Grouping contains (skip): ")
+    if group_val is not None:
+        conditions.append("grouping LIKE ?"); params.append(f"%{group_val}%")
+
+    # 12. Duration
+    print("\n[12/12] Duration")
+    min_dur = prompt_float("   -> Min Duration sec (skip): ")
+    if min_dur is not None:
+        conditions.append("duration_sec >= ?"); params.append(min_dur)
+    max_dur = prompt_float("   -> Max Duration sec (skip): ")
+    if max_dur is not None:
+        conditions.append("duration_sec <= ?"); params.append(max_dur)
+
+    # Sorting
+    print("\n" + "=" * 60)
+    print("🔄 Sorting Configuration")
+    sort_field = prompt_str("   -> Sort by field [default: dsp_bpm]: ") or "dsp_bpm"
+    sort_order = prompt_str("   -> Sort order (ASC / DESC) [default: ASC]: ") or "ASC"
+    
+    query = f"SELECT * FROM {TABLE_NAME} WHERE " + " AND ".join(conditions)
+    query += f" ORDER BY {sort_field} {sort_order}"
+
+    # Execute SQLite Query
+    if not os.path.exists(DB_PATH):
+        print(f"\n❌ Error: Database not found at '{DB_PATH}'")
+        return
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row  # Returns dict-like rows
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        all_matched_tracks = cursor.fetchall()
+        total_matched = len(all_matched_tracks)
+    except sqlite3.Error as e:
+        print(f"\n❌ SQLite Error: {e}")
+        return
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+    print("\n" + "=" * 60)
+    print("📊 Quantity Bounds & MFCC Averaging")
+    print(f"   (Matching tracks found: {total_matched})")
+    
+    if total_matched == 0:
+        print("\n❌ No tracks matched your criteria.")
+        return
+
+    use_mfcc_avg = prompt_str("   -> Filter final selection by proximity to Average MFCC Vibe? (y/N): ")
+    use_mfcc = use_mfcc_avg and use_mfcc_avg.lower() == 'y'
+    
+    max_qty_input = prompt_str("   -> Maximum quantity of songs (skip for all): ")
+    max_qty = int(max_qty_input) if max_qty_input and max_qty_input.isdigit() else total_matched
+
+    # MFCC Sonic Centroid Logic
+    if use_mfcc:
+        valid_candidates = []
+        mfcc_matrix = []
+
+        for row in all_matched_tracks:
+            mfcc_raw = row['mfcc_profile']
+            if mfcc_raw:
+                try:
+                    vec = json.loads(mfcc_raw)
+                    if len(vec) == 13:
+                        mfcc_matrix.append(vec)
+                        valid_candidates.append((row, vec))
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    continue
+
+        if mfcc_matrix:
+            num_items = len(mfcc_matrix)
+            mean_mfcc = [sum(v[i] for v in mfcc_matrix) / num_items for i in range(13)]
+            
+            scored_candidates = []
+            for row, vec in valid_candidates:
+                dist = math.sqrt(sum((a - b) ** 2 for a, b in zip(vec, mean_mfcc)))
+                scored_candidates.append((dist, row))
+                
+            # Sort by shortest distance to the average 13D vector
+            scored_candidates.sort(key=lambda x: x[0])
+            all_matched_tracks = [item[1] for item in scored_candidates]
+            print(f"   🎯 Re-ranked {len(all_matched_tracks)} tracks by proximity to average sonic profile.")
+        else:
+            print("   ⚠️ No valid MFCC data found in matching tracks. Using standard SQL sort.")
+
+    # Apply Quantity Truncation
+    final_tracks = all_matched_tracks[:max_qty]
+    
+    # Export to M3U
+    m3u_filename = prompt_str("\n   -> Output filename [default: playlist.m3u]: ") or "playlist.m3u"
+    
+    try:
+        with open(m3u_filename, 'w', encoding='utf-8') as f:
+            f.write("#EXTM3U\n")
+            for row in final_tracks:
+                dur = int(row['duration_sec']) if row['duration_sec'] else 0
+                artist = row['album_artist'] or "Unknown Artist"
+                # Fallback to original_path if processed_path is NULL
+                file_path = row['processed_path'] or row['original_path'] 
+                title = os.path.basename(file_path) if file_path else "Unknown Title"
+                
+                f.write(f"#EXTINF:{dur},{artist} - {title}\n")
+                f.write(f"{file_path}\n")
+        print(f"\n✅ Playlist successfully saved with {len(final_tracks)} tracks to: {m3u_filename}")
+    except IOError as e:
+        print(f"\n❌ Failed to write M3U file: {e}")
+
+if __name__ == "__main__":
+    main()    print("\n[3/12] Spectral Rolloff (High-Frequency Cutoff)")
     min_roll = input("   -> Min Rolloff Hz (skip): ").strip()
     max_roll = input("   -> Max Rolloff Hz (skip): ").strip()
     if min_roll: filters.append("spectral_rolloff_hz >= ?"); params.append(float(min_roll))
