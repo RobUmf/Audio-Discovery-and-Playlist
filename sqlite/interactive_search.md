@@ -1,4 +1,4 @@
-# Interactive YouTube URL Search Tool (`interactive_searchurl.py`)
+# Interactive YouTube URL Search Tool (`interactive_search.py`)
 
 An interactive, single-track review script designed to handle unmapped audio tracks in your SQLite database. It runs tiered search queries through `yt-dlp`, computes title similarity scores, and gives you direct control to accept, try next query variants, manually paste URLs, or skip.
 
@@ -22,4 +22,4 @@ An interactive, single-track review script designed to handle unmapped audio tra
 
 Run the script directly from your terminal:
 ```bash
-python3 interactive_searchurl.py
+python3 interactive_search.py
