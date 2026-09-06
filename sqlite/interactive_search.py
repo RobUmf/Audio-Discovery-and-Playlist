@@ -7,6 +7,13 @@ from difflib import SequenceMatcher
 def similar(a, b):
     return SequenceMatcher(None, a.lower(), b.lower()).ratio() * 100
 
+def format_time(seconds):
+    if not seconds or not isinstance(seconds, (int, float)):
+        return "?:??"
+    m = int(seconds) // 60
+    s = int(seconds) % 60
+    return f"{m}:{s:02d}"
+
 def search_youtube(query):
     ydl_opts = {
         'format': 'bestaudio',
@@ -20,6 +27,10 @@ def search_youtube(query):
             if 'entries' in info and info['entries']:
                 entry = info['entries'][0]
                 
+                # Extract duration and format it
+                raw_dur = entry.get('duration')
+                dur_str = format_time(raw_dur)
+                
                 # Extract description, flatten newlines for terminal display, and cap at 512 chars
                 raw_desc = entry.get('description') or "No description available."
                 clean_desc = raw_desc.replace('\n', ' | ').strip()
@@ -29,12 +40,175 @@ def search_youtube(query):
                     'title': entry.get('title'),
                     'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
                     'id': entry.get('id'),
-                    'description': trunc_desc
+                    'description': trunc_desc,
+                    'duration_sec': raw_dur,
+                    'duration_formatted': dur_str
                 }
     except Exception:
         pass
     return None
 
+def main():
+    db_path = 'audio_database.db'
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Check table structure for primary key / rowid and album/duration columns
+    cursor.execute("PRAGMA table_info(tracks);")
+    columns = [col[1] for col in cursor.fetchall()]
+    id_col = 'id' if 'id' in columns else 'rowid'
+    album_col = 'album' if 'album' in columns else 'grouping' if 'grouping' in columns else 'NULL'
+    
+    # Dynamically locate duration column name
+    dur_col_name = 'duration_sec' if 'duration_sec' in columns else ('duration' if 'duration' in columns else None)
+    
+    select_cols = f"{id_col}, title, artist, {album_col}"
+    if dur_col_name:
+        select_cols += f", {dur_col_name}"
+        
+    cursor.execute(f"SELECT {select_cols} FROM tracks WHERE youtube_url IS NULL OR youtube_url = '' OR youtube_url = 'None'")
+    remaining = cursor.fetchall()
+    
+    print(f"\nFound {len(remaining)} unmapped tracks to review interactively.\n")
+    
+    for row in remaining:
+        row_id = row[0]
+        title = row[1]
+        artist = row[2]
+        album = row[3] if len(row) > 3 else None
+        local_dur_sec = row[4] if len(row) > 4 else None
+        
+        # Fallbacks for empty fields
+        title = title or "Unknown Title"
+        artist = artist or "Unknown Artist"
+        album_display = album if album else "Unknown Album"
+        local_dur_str = format_time(local_dur_sec)
+        
+        print("=" * 60)
+        print(f"🎵 Track: {artist} - {title}  [{local_dur_str}]")
+        print(f"💿 Album: {album_display}")
+        print("=" * 60)
+        
+        # Clean title (alphanumeric only for weird punctuation dropouts)
+        clean_title = re.sub(r'[^\w\s]', ' ', title)
+        clean_title = re.sub(r'\s+', ' ', clean_title).strip()
+        
+        # Base title: aggressively strips features, remixes, VIPs, and edits in parentheses or brackets
+        base_title = re.sub(r'[\(\[](feat\.|VIP|Remix|Edit|Mix|Remaster).*?[\)\]]', '', title, flags=re.IGNORECASE).strip()
+        base_title = re.sub(r'\s+', ' ', base_title).strip()
+        
+        # Tiered Queries: Most Strict to Least Strict
+        queries = []
+        
+        # 1. Exact Quotes (Most Strict)
+        queries.append(f'"{artist}" "{title}"')
+        if album and album.strip():
+            queries.append(f'"{album}" "{title}"')
+            
+        # 2. Standard Search & Official Audio
+        queries.append(f"{artist} - {title} - Topic")
+        queries.append(f"{artist} - {title}")
+        
+        # 3. Reversed & Alternate Formats
+        queries.append(f"{title} - {artist}")
+        queries.append(f"{title} feat. {artist}")
+        
+        # 4. Suffix Variations
+        queries.append(f"{artist} - {title} Audio")
+        queries.append(f"{artist} - {title} Visualizer")
+        
+        # 5. Fallbacks for Weird Punctuation (Less Strict)
+        if clean_title != title:
+            queries.append(f"{artist} - {clean_title} - Topic")
+            queries.append(f"{artist} - {clean_title}")
+            
+        # 6. Fallbacks Stripping Remixes/Features (Least Strict)
+        if base_title != title:
+            queries.append(f"{artist} - {base_title} - Topic")
+            queries.append(f"{artist} - {base_title}")
+            
+        # Deduplicate while preserving query order
+        queries = list(dict.fromkeys(queries))
+        
+        track_handled = False
+        
+        for i, q in enumerate(queries):
+            print(f"   Searching: {q} ...")
+            res = search_youtube(q)
+            
+            if res:
+                score = similar(f"{artist} - {title}", res['title'])
+                print(f"   ✅ Found via query: '{q}'")
+                print(f"      Result: {res['title']}  [{res['duration_formatted']}]")
+                print(f"      URL:    {res['url']} (Sim: {score:.1f}%)")
+                print(f"      Desc:   {res['description']}")
+                
+                is_last = (i == len(queries) - 1)
+                
+                while True:
+                    if not is_last:
+                        prompt = "   [y] Accept | [m] Manual URL | [t] Try next query | [s] Skip | [q] Quit: "
+                    else:
+                        prompt = "   [y] Accept | [m] Manual URL | [s] Skip | [q] Quit: "
+                        
+                    choice = input(prompt).strip().lower()
+                    
+                    if choice == 'y':
+                        cursor.execute(f"UPDATE tracks SET youtube_url = ? WHERE {id_col} = ?", (res['url'], row_id))
+                        conn.commit()
+                        print("   💾 Saved to database.")
+                        track_handled = True
+                        break
+                    elif choice == 'm':
+                        custom_url = input("   Paste YouTube URL: ").strip()
+                        if custom_url:
+                            cursor.execute(f"UPDATE tracks SET youtube_url = ? WHERE {id_col} = ?", (custom_url, row_id))
+                            conn.commit()
+                            print("   💾 Manual URL saved.")
+                        else:
+                            print("   ⏭️ Skipped.")
+                        track_handled = True
+                        break
+                    elif choice == 't' and not is_last:
+                        print("")
+                        break
+                    elif choice == 's':
+                        print("   ⏭️ Skipped.")
+                        track_handled = True
+                        break
+                    elif choice == 'q':
+                        print("\n👋 Exiting interactive session.")
+                        conn.close()
+                        sys.exit(0)
+                    else:
+                        print("   ⚠️ Invalid choice. Please try again.")
+                
+                if track_handled:
+                    break
+            else:
+                print("   ⚠️ No results found.")
+                
+        if not track_handled:
+            print("   ⚠️ No acceptable match found across all fallback tiers.")
+            choice = input("   [m] Manual URL | [s] Skip | [q] Quit: ").strip().lower()
+            if choice == 'm':
+                custom_url = input("   Paste YouTube URL: ").strip()
+                if custom_url:
+                    cursor.execute(f"UPDATE tracks SET youtube_url = ? WHERE {id_col} = ?", (custom_url, row_id))
+                    conn.commit()
+                    print("   💾 Manual URL saved.")
+            elif choice == 'q':
+                print("\n👋 Exiting interactive session.")
+                conn.close()
+                sys.exit(0)
+            else:
+                print("   ⏭️ Skipped.")
+                
+    conn.close()
+    print("\n🎉 Interactive review session complete!")
+
+if __name__ == '__main__':
+    main()
 def main():
     db_path = 'audio_database.db'
     conn = sqlite3.connect(db_path)
