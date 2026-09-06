@@ -64,6 +64,155 @@ def main():
         print(f"💿 Album: {album_display}")
         print("=" * 60)
         
+        # Clean title (alphanumeric only for weird punctuation dropouts)
+        clean_title = re.sub(r'[^\w\s]', ' ', title)
+        clean_title = re.sub(r'\s+', ' ', clean_title).strip()
+        
+        # Base title: aggressively strips features, remixes, VIPs, and edits in parentheses or brackets
+        base_title = re.sub(r'[\(\[](feat\.\vert{}VIP\vert{}Remix\vert{}Edit\vert{}Mix\vert{}Remaster).*?[\)\]]', '', title, flags=re.IGNORECASE).strip()
+        base_title = re.sub(r'\s+', ' ', base_title).strip()
+        
+        # Tiered Queries: Most Strict to Least Strict
+        queries = []
+        
+        # 1. Exact Quotes (Most Strict)
+        queries.append(f'"{artist}" "{title}"')
+        if album and album.strip():
+            queries.append(f'"{album}" "{title}"')
+            
+        # 2. Standard Search & Official Audio
+        queries.append(f"{artist} - {title} - Topic")
+        queries.append(f"{artist} - {title}")
+        
+        # 3. Reversed & Alternate Formats
+        queries.append(f"{title} - {artist}")
+        queries.append(f"{title} feat. {artist}")
+        
+        # 4. Suffix Variations
+        queries.append(f"{artist} - {title} Audio")
+        queries.append(f"{artist} - {title} Visualizer")
+        
+        # 5. Fallbacks for Weird Punctuation (Less Strict)
+        if clean_title != title:
+            queries.append(f"{artist} - {clean_title} - Topic")
+            queries.append(f"{artist} - {clean_title}")
+            
+        # 6. Fallbacks Stripping Remixes/Features (Least Strict)
+        if base_title != title:
+            queries.append(f"{artist} - {base_title} - Topic")
+            queries.append(f"{artist} - {base_title}")
+            
+        # Deduplicate while preserving query order
+        queries = list(dict.fromkeys(queries))
+        
+        track_handled = False
+        
+        for i, q in enumerate(queries):
+            print(f"   Searching: {q} ...")
+            res = search_youtube(q)
+            
+            if res:
+                score = similar(f"{artist} - {title}", res['title'])
+                print(f"   ✅ Found via query: '{q}'")
+                print(f"      Result: {res['title']}")
+                print(f"      URL:    {res['url']} (Sim: {score:.1f}%)")
+                print(f"      Desc:   {res['description']}")
+                
+                is_last = (i == len(queries) - 1)
+                
+                while True:
+                    if not is_last:
+                        prompt = "   [y] Accept | [m] Manual URL | [t] Try next query | [s] Skip | [q] Quit: "
+                    else:
+                        prompt = "   [y] Accept | [m] Manual URL | [s] Skip | [q] Quit: "
+                        
+                    choice = input(prompt).strip().lower()
+                    
+                    if choice == 'y':
+                        cursor.execute(f"UPDATE tracks SET youtube_url = ? WHERE {id_col} = ?", (res['url'], row_id))
+                        conn.commit()
+                        print("   💾 Saved to database.")
+                        track_handled = True
+                        break
+                    elif choice == 'm':
+                        custom_url = input("   Paste YouTube URL: ").strip()
+                        if custom_url:
+                            cursor.execute(f"UPDATE tracks SET youtube_url = ? WHERE {id_col} = ?", (custom_url, row_id))
+                            conn.commit()
+                            print("   💾 Manual URL saved.")
+                        else:
+                            print("   ⏭️ Skipped.")
+                        track_handled = True
+                        break
+                    elif choice == 't' and not is_last:
+                        print("")
+                        break
+                    elif choice == 's':
+                        print("   ⏭️ Skipped.")
+                        track_handled = True
+                        break
+                    elif choice == 'q':
+                        print("\n👋 Exiting interactive session.")
+                        conn.close()
+                        sys.exit(0)
+                    else:
+                        print("   ⚠️ Invalid choice. Please try again.")
+                
+                if track_handled:
+                    break
+            else:
+                print("   ⚠️ No results found.")
+                
+        if not track_handled:
+            print("   ⚠️ No acceptable match found across all fallback tiers.")
+            choice = input("   [m] Manual URL | [s] Skip | [q] Quit: ").strip().lower()
+            if choice == 'm':
+                custom_url = input("   Paste YouTube URL: ").strip()
+                if custom_url:
+                    cursor.execute(f"UPDATE tracks SET youtube_url = ? WHERE {id_col} = ?", (custom_url, row_id))
+                    conn.commit()
+                    print("   💾 Manual URL saved.")
+            elif choice == 'q':
+                print("\n👋 Exiting interactive session.")
+                conn.close()
+                sys.exit(0)
+            else:
+                print("   ⏭️ Skipped.")
+                
+    conn.close()
+    print("\n🎉 Interactive review session complete!")
+
+if __name__ == '__main__':
+    main()
+def main():
+    db_path = 'audio_database.db'
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Check table structure for primary key / rowid and album column
+    cursor.execute("PRAGMA table_info(tracks);")
+    columns = [col[1] for col in cursor.fetchall()]
+    id_col = 'id' if 'id' in columns else 'rowid'
+    
+    # Check for 'album' or fallback to 'grouping' based on metadata schema
+    album_col = 'album' if 'album' in columns else 'grouping' if 'grouping' in columns else 'NULL'
+    
+    cursor.execute(f"SELECT {id_col}, title, artist, {album_col} FROM tracks WHERE youtube_url IS NULL OR youtube_url = '' OR youtube_url = 'None'")
+    remaining = cursor.fetchall()
+    
+    print(f"\nFound {len(remaining)} unmapped tracks to review interactively.\n")
+    
+    for row_id, title, artist, album in remaining:
+        # Fallbacks for empty fields
+        title = title or "Unknown Title"
+        artist = artist or "Unknown Artist"
+        album_display = album if album else "Unknown Album"
+        
+        print("=" * 60)
+        print(f"🎵 Track: {artist} - {title}")
+        print(f"💿 Album: {album_display}")
+        print("=" * 60)
+        
         # Build tiered queries
         clean_title = re.sub(r'[^\w\s]', ' ', title)
         clean_title = re.sub(r'\s+', ' ', clean_title).strip()
