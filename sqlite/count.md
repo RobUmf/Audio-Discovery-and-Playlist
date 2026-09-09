@@ -14,13 +14,12 @@ A lightweight command-line audit and reporting tool for your local audio library
 
 The script looks for a `config.json` file in the working directory by default
 
-+----------+------------+------------------------------------------+------------------------------+
+ +----------+------------+------------------------------------------+------------------------------+
 | Argument | Long Flag  | Description                              | Default Value                |
 +----------+------------+------------------------------------------+------------------------------+
 | -c       | --config   | Path to custom JSON configuration file   | config.json                  |
 | -i       | --input    | Path to input music directory (Raw)      | /storage/2013-1E1B/musicraw  |
-| -o       | --output   | Path to output compressed directory      | /storage/2013-1E1B/128mp3    |
-| -d       | --db       | Path to the SQLite database file         | audio_database.db            |
+| -o       | --output   | Path to outputaudio_database.db            |
 | -h       | --help     | Show the help message and exit           | N/A                          |
 +----------+------------+------------------------------------------+------------------------------
 python3 count.py
