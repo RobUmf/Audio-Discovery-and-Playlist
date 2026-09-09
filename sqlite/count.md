@@ -6,22 +6,26 @@ A lightweight command-line audit and reporting tool for your local audio library
 
 ## Features
 
-- **Directory Scanning**: Recursively audits your raw and json libraries (`.mp3`, `.flac`, `.opus`, `.wav`, `.m4a`), breaking down file counts by format and calculating total storage size.
-- **Database Metrics**: Connects to your SQLite database (`audio_database.db`) to instantly pull record health metrics (total entries, populated artists, groupings, cutoff frequencies, and YouTube URLs).
-- **Config-Driven**: Automatically reads default paths from a local `config.json`, with quick overrides available straight from the terminal.
+- **Directory Scanning**: Audits raw and compressed music libraries (`.mp3`, `.flac`, `.opus`, `.wav`, `.m4a`), breaking down file counts and storage size.
+- **Database Metrics**: Connects to your SQLite database (`audio_database.db`) to pull record health metrics.
+- **Config-Driven**: Automatically reads default paths from a local `config.json`, with terminal overrides.
 
 ---
 
-The script looks for a `config.json` file in the working directory by default
+## Command-Line Options
 
- +----------+------------+------------------------------------------+------------------------------+
-| Argument | Long Flag  | Description                              | Default Value                |
-+----------+------------+------------------------------------------+------------------------------+
-| -c       | --config   | Path to custom JSON configuration file   | config.json                  |
-| -i       | --input    | Path to input music directory (Raw)      | /storage/2013-1E1B/musicraw  |
-| -o       | --output   | Path to outputaudio_database.db            |
-| -h       | --help     | Show the help message and exit           | N/A                          |
-+----------+------------+------------------------------------------+------------------------------
+| Option / Flag | Long Flag | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `-c` | `--config` | `config.json` | Path to custom JSON configuration file. |
+| `-i` | `--input` | `/storage/2013-1E1B/musicraw` | Path to input music directory (Raw Library). |
+| `-o` | `--output` | `/storage/2013-1E1B/128mp3` | Path to output compressed directory (`128mp3`). |
+| `-d` | `--db` | `audio_database.db` | Path to the SQLite database file. |
+| `-h` | `--help` | — | Show the help message and exit. |
+
+---
+
+## Usage Examples
+
+**Run with default configuration:**
+```bash
 python3 count.py
-
-python3 count.py -i /path/to/raw -o /path/to/compressed -d /path/to/database.db -c custom_config.json
