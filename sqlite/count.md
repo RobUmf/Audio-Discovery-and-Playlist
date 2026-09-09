@@ -1,5 +1,3 @@
-Bash
-cat << 'EOF' > count.md
 # Count Utility (`count.py`)
 
 A lightweight command-line audit and reporting tool for your local audio library and SQLite tracking database.
@@ -23,6 +21,7 @@ Argument,Long Flag,Description,Default Value
 -d,--db,Path to the SQLite database file,audio_database.db
 -h,--help,Show the help message and exit,—
 
-python3 count.
+
+python3 count.py
 
 python3 count.py -i /path/to/raw -o /path/to/compressed -d /path/to/database.db -c custom_config.json
