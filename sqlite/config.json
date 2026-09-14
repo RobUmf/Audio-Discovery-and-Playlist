@@ -1,0 +1,8 @@
+{
+  "input_dir": "~/musicraw",
+  "output_dir": "~/128mp3",
+  "db_path": "audio_database.db",
+  "bitrate": "128k",
+  "include_cover": true,
+  "cover_size": "300"
+}
