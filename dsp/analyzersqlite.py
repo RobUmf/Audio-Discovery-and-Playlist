@@ -91,7 +91,7 @@ def analyze_track_assets(file_path, target_sr=22050, max_analyze_sec=120.0):
             "health_clip_pct": round(health_clip_pct, 3)
         }
         
-        # Explicit memory purge before worker returns (added 'audio' to clear PyDub bloat)
+        # Explicit memory purge before worker returns
         del audio, y, y_harmonic, y_percussive, onset_env
         gc.collect()
 
@@ -111,7 +111,7 @@ def main():
     parser.add_argument("-w", "--workers", type=int, default=default_workers, help="Concurrent workers")
     parser.add_argument("--sr", type=int, default=22050, help="Downsample rate to save RAM (default 22050, 0 for native)")
     
-    # --- NEW THROTTLE CONTROLS ---
+    # --- THROTTLE CONTROLS ---
     parser.add_argument("-b", "--batch-size", type=int, default=50, help="Reboot workers after N files to clear RAM")
     parser.add_argument("-s", "--sleep", type=float, default=2.0, help="Pause in seconds between batches")
     parser.add_argument("--max-dur", type=float, default=120.0, help="Max duration in seconds to analyze per track")
@@ -125,12 +125,12 @@ def main():
         with open(config_file, 'r') as f:
             config = json.load(f)
 
-    # Resolve paths dynamically
-    search_dir_val = args.directory or config.get("output_dir", "/storage/2013-1E1B/128mp3")
-    search_dir = Path(search_dir_val).resolve()
+    # Resolve paths dynamically with .expanduser() support for tildes
+    search_dir_val = args.directory or config.get("output_dir", "~/128mp3")
+    search_dir = Path(search_dir_val).expanduser().resolve()
 
     db_path_val = args.db or config.get("db_path", "audio_database.db")
-    db_file = Path(db_path_val).resolve()
+    db_file = Path(db_path_val).expanduser().resolve()
 
     print(f"Connecting to database: {db_file}")
     print(f"Scanning target directory: {search_dir}")

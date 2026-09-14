@@ -34,8 +34,9 @@ def main():
     if not db_path.is_absolute():
         db_path = Path.cwd() / db_path
 
+    # Fixed with .expanduser() to handle ~ correctly across different environments
     target_dir_val = args.target or config.get("output_dir", "/storage/2013-1E1B/128mp3")
-    target_dir = Path(target_dir_val)
+    target_dir = Path(target_dir_val).expanduser()
 
     if not db_path.exists():
         print(f"❌ Error: Database not found at '{db_path}'")
@@ -79,20 +80,20 @@ def main():
     for row in rows:
         keys = row.keys()
         file_col = next((row[k] for k in keys if k.lower() in ['filename', 'file_name', 'file', 'path', 'filepath'] and row[k]), None)
-        
+
         if not file_col:
             continue
 
         raw_path = str(file_col)
         base_name = os.path.basename(raw_path)
         stem = os.path.splitext(base_name)[0].lower().strip()
-        
+
         # Check if this file stem or filename exists anywhere in the target folder tree
         if stem not in existing_stems and base_name.lower() not in existing_files:
             artist = next((row[k] for k in keys if k.lower() in ['artist', 'artist_name'] and row[k]), "Unknown Artist")
             album = next((row[k] for k in keys if k.lower() in ['album', 'album_name'] and row[k]), "Unknown Album")
             title = next((row[k] for k in keys if k.lower() in ['title', 'track_title', 'name'] and row[k]), stem)
-            
+
             missing_records.append({
                 "artist": str(artist),
                 "album": str(album),
@@ -109,7 +110,7 @@ def main():
             print(f"  [Missing] {item['artist']} - {item['album']} -> {item['title']} ({item['file']})")
         if len(missing_records) > 40:
             print(f"  ... and {len(missing_records) - 40} more tracks.")
-        
+
         # Handle file export if requested
         if args.export:
             export_path = Path(args.export)
