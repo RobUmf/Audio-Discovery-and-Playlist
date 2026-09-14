@@ -1,0 +1,15 @@
+# Databases and backups
+*.db
+*.db.bak
+*.tar.gz
+*.zip
+*.bak
+
+# Playlists and audio output
+*.m3u
+*.mp3
+
+# Temp files / directories
+~*
+sqlite/~/
+sqlite/
