@@ -78,7 +78,7 @@ def get_cutoff_hz(y, sr):
 def main():
     parser = argparse.ArgumentParser(description="Advanced Audio DSP pass")
     parser.add_argument("-c", "--config", default="config.json", help="Path to JSON config file")
-    parser.add_argument("--db", default="/home/audio-repo/sqlite/audio_database.db", help="SQLite database path")
+    parser.add_argument("--db", default="audio_database.db", help="SQLite database path")
     parser.add_argument("-b", "--batch-size", type=int, default=50, help="Reboot workers after N files to clear RAM")
     parser.add_argument("-s", "--sleep", type=float, default=2.0, help="Pause in seconds between batches")
     parser.add_argument("-d", "--directory", default=None, help="Target audio directory (overrides config)")
@@ -101,7 +101,7 @@ def main():
     conn = setup_database(str(db_file))
     cursor = conn.cursor()
     
-    cursor.execute('SELECT id, file_path FROM tracks WHERE dsp_key IS NULL')
+    cursor.execute('SELECT id, file_path FROM tracks WHERE dsp_key IS NULL OR onset_rate IS NULL')
     all_tracks = cursor.fetchall()
     
     total_remaining = len(all_tracks)
