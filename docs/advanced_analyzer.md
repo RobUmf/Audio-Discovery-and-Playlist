@@ -20,7 +20,7 @@
 | Option / Flag | Long Flag | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `-c` | `--config` | `config.json` | Path to the JSON configuration file containing path mappings. |
-| `--db` | `--db` | `/home/audio-repo/sqlite/audio_database.db` | File path to the SQLite target database. |
+| `--db` | `--db` | `audio_database.db` | File path to the SQLite target database. |
 | `-b` | `--batch-size` | `50` | Number of tracks to process before pausing / clearing worker cache. |
 | `-s` | `--sleep` | `2.0` | Pause duration in seconds between processing batches. |
 | `-d` | `--directory` | `None` | Target audio library root directory (overrides configuration file). |
